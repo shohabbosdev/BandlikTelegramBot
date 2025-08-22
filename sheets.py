@@ -3,6 +3,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
 # .env faylini yuklaymiz
 load_dotenv()
 
