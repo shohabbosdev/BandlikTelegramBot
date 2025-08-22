@@ -11,8 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Loyihani konteynerga nusxalash
 COPY . .
 
-# Environment secrets bilan credential faylni ishlatish
-ENV GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/credentials.json
+# Secret fayl pathini to'g'ri ko'rsatish
+ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/GOOGLE_APPLICATION_CREDENTIALS
+
 
 # Telegram botni ishga tushirish
 CMD ["python", "main.py"]
