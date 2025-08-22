@@ -1,18 +1,18 @@
-# Base image
+# Python 3.11 image-dan boshlaymiz
 FROM python:3.11-slim
 
-# Ishchi katalog
+# Ishchi direktoriyani o‘rnatamiz
 WORKDIR /app
 
-# Python dependencies
+# Talab qilinadigan paketlarni o‘rnatish
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Bot kodi
+# Loyihani konteynerga nusxalash
 COPY . .
 
-# Environment variable orqali credentials yo‘lini olamiz
-ENV GOOGLE_APPLICATION_CREDENTIALS="/secrets/credentials.json"
+# Environment secrets bilan credential faylni ishlatish
+ENV GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/credentials.json
 
 # Telegram botni ishga tushirish
 CMD ["python", "main.py"]
