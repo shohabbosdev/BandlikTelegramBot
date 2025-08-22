@@ -7,10 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Secret fayl yo‘li Render secrets orqali yoki .env orqali
-creds_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 
-# Google Sheets API uchun scopes
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
 
 # Credential va gspread client yaratish
 creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
