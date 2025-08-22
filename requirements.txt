@@ -3,6 +3,5 @@ gspread
 google-auth
 matplotlib
 environs
-collections
 uuid
 os
