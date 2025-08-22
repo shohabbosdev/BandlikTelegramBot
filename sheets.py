@@ -4,6 +4,7 @@ from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+from config import SHEET_ID, WORKSHEET_TITLE
 
 # .env faylini yuklaymiz
 load_dotenv()
@@ -13,8 +14,6 @@ load_dotenv()
 creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
 
-# Credential va gspread client yaratish
-creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
 GC = gspread.authorize(creds)
 
 # .env fayldan olingan Sheet nomlari
