@@ -1,0 +1,8 @@
+python-telegram-bot>=20.0
+gspread
+google-auth
+matplotlib
+environs
+collections
+uuid
+os
