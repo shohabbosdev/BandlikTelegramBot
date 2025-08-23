@@ -277,48 +277,99 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     labels = [str(t[0]) for t in counts]
     data = [t[1] for t in counts]
 
-    # Shrift sozlash
-    orig_font = mpl.rcParams["font.family"]
-    try:
-        mpl.rcParams["font.family"] = "Times New Roman"
-    except Exception:
-        pass  # fallback default
+    # Shrift sozlash - bir nechta variantni sinab ko'rish
+    orig_font = mpl.rcParams["font.family"].copy()
+    font_candidates = [
+        'Times New Roman', 
+        'DejaVu Serif', 
+        'Liberation Serif',
+        'Times',
+        'serif',
+        'DejaVu Sans',
+        'Liberation Sans',
+        'Arial',
+        'sans-serif'
+    ]
+    
+    font_set = False
+    for font in font_candidates:
+        try:
+            plt.rcParams['font.family'] = font
+            # Shriftni test qilish
+            fig_test = plt.figure()
+            plt.text(0.5, 0.5, 'Test', fontfamily=font)
+            plt.close(fig_test)
+            font_set = True
+            break
+        except Exception:
+            continue
+    
+    if not font_set:
+        # Agar hech qanday shrift ishlamasa, default qoldirish
+        plt.rcParams['font.family'] = 'sans-serif'
+
+    # UTF-8 belgilarni qo'llab-quvvatlash uchun
+    plt.rcParams['axes.unicode_minus'] = False
 
     # Ranglar
     cmap = plt.cm.get_cmap("tab20", len(labels))
     colors = [cmap(i) for i in range(len(labels))]
 
-    # Rasm o‘lchami: kenglik elementlar soniga qarab, maksimal 40
-    width = min(40, max(10, len(labels) * 0.35))
-    plt.figure(figsize=(width, 6), dpi=120)
-    bars = plt.bar(range(len(labels)), data, color=colors)
+    # Rasm o'lchami: kenglik elementlar soniga qarab, maksimal 40
+    width = min(40, max(10, len(labels) * 0.5))
+    height = max(6, len(labels) * 0.15)  # Balandlikni ham moslashtirildi
+    
+    plt.figure(figsize=(width, height), dpi=100)  # DPI ni kamaytirish tezlik uchun
+    bars = plt.bar(range(len(labels)), data, color=colors, edgecolor='black', linewidth=0.5)
 
-    # X o‘qi
-    plt.xticks(range(len(labels)), labels, rotation=45, ha="right", fontsize=9)
-    plt.ylabel("Soni")
-    plt.title("📊 Yo'nalishlar bo'yicha taqsimot grafigi")
-    plt.grid(axis="y", linestyle="--", alpha=0.6)
+    # X o'qi - matn uzunligiga qarab rotation burchakni sozlash
+    max_label_length = max(len(label) for label in labels) if labels else 0
+    rotation_angle = 45 if max_label_length > 8 else 0
+    
+    plt.xticks(range(len(labels)), labels, rotation=rotation_angle, 
+               ha="right" if rotation_angle > 0 else "center", fontsize=10)
+    plt.ylabel("Soni", fontsize=12, fontweight='bold')
+    plt.title("📊 Yo'nalishlar bo'yicha taqsimot grafigi", fontsize=14, fontweight='bold', pad=20)
+    plt.grid(axis="y", linestyle="--", alpha=0.6, color='gray')
+
+    # Y o'qini butun sonlarga sozlash
+    if max(data) < 20:
+        plt.yticks(range(0, max(data) + 2))
 
     # Bar ustidagi qiymatlar
-    for bar, val in zip(bars, data):
-        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
-                 str(val), ha="center", va="bottom", fontsize=8, fontweight="bold")
+    for i, (bar, val) in enumerate(zip(bars, data)):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(data) * 0.01,
+                 str(val), ha="center", va="bottom", fontsize=9, fontweight="bold")
 
-    # Legend
-    plt.legend(bars, labels, title="Qiymatlar", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
+    # Legend faqat ko'p element bo'lganda
+    if len(labels) <= 15:
+        plt.legend(bars, labels, title="Yo'nalishlar", bbox_to_anchor=(1.05, 1), 
+                   loc="upper left", fontsize=9, title_fontsize=10)
 
     # Fayl nomi va saqlash
     file_name = f"/tmp/grafik_{uuid.uuid4().hex}.png"
     try:
         plt.tight_layout()
-        plt.savefig(file_name, bbox_inches="tight")
+        plt.subplots_adjust(right=0.85 if len(labels) <= 15 else 0.95)  # Legend uchun joy
+        plt.savefig(file_name, bbox_inches="tight", facecolor='white', 
+                    edgecolor='none', format='png', optimize=True)
         plt.close()
+        
         with open(file_name, "rb") as ph:
-            await context.bot.send_photo(chat_id=chat_id, photo=ph, caption="📊 Yo'nalishlar kesimi bo'yicha taqsimot grafigi")
+            await context.bot.send_photo(
+                chat_id=chat_id, 
+                photo=ph, 
+                caption="📊 Yo'nalishlar kesimi bo'yicha taqsimot grafigi"
+            )
     except Exception as e:
-        await context.bot.send_message(chat_id=chat_id, text=f"❌ Grafik yaratishda xatolik bo'ldi xatolik kodi: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"❌ Grafik yaratishda xatolik: {str(e)}"
+        )
     finally:
+        # Tozalash
         if os.path.exists(file_name):
             os.remove(file_name)
-        mpl.rcParams["font.family"] = orig_font  # asl shriftga qaytish
+        # Asl shrift sozlamalarini qaytarish
+        plt.rcParams['font.family'] = orig_font
 
