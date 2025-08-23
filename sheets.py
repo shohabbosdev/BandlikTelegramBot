@@ -9,10 +9,8 @@ load_dotenv()
 # Google Sheets API scope
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-# Secret fayl yo‘li
-creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-if not creds_path or not os.path.exists(creds_path):
-    raise FileNotFoundError("Google credentials.json fayli topilmadi!")
+# Render’da maxfiy fayl doimiy yo‘li
+creds_path = "/etc/secrets/GOOGLE_APPLICATION_CREDENTIALS"
 
 creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
 GC = gspread.authorize(creds)
