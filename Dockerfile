@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Loyihani konteynerga nusxalash
 COPY . .
 
-# Secret fayl pathini to'g'ri ko'rsatish
-ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/GOOGLE_APPLICATION_CREDENTIALS
+# Google credentials faylini konteynerga nusxalash
+COPY path/to/credentials.json /etc/secrets/GOOGLE_APPLICATION_CREDENTIALS
 
 
 # Telegram botni ishga tushirish
