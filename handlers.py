@@ -111,8 +111,8 @@ async def stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         "📊 *Statistika (W ustuni bo‘yicha):*\n",
-        f"👥 *Jami talabalar:* {total_students} ta",
-        f"🟢 *Faol shartnoma egalari (umumiy):* {total_active} ta ({overall_pct}%)\n",
+        f"👥 *Jami talabalar soni:* {total_students} ta",
+        f"🟢 *Faol shartnoma ega talabalarning (umumiy) soni:* {total_active} ta ({overall_pct}%)\n",
     ]
 
     for w_key in sorted(total_per_w.keys(), key=lambda x: (x.lower() if isinstance(x, str) else str(x))):
@@ -189,9 +189,9 @@ async def send_page(chat_id: int, context: ContextTypes.DEFAULT_TYPE, page: int)
     page_items = results[start:end]
 
     header = (
-        f"📋 *Jami natija:* {total} ta\n"
-        f"🟢 *Faollar:* {active} ta ({pct}%)\n"
-        f"📄 *Sahifa:* {page}/{total_pages}\n\n"
+        f"📋 *Jami topilgan talabalar soni:* {total} ta\n"
+        f"🟢 *my.mehnat.uz da faol bo'lganlar soni:* {active} ta ({pct}%)\n"
+        f"📄 *Sahifalar:* {page}/{total_pages}\n\n"
     )
     text = header + format_results_block(page_items)
 
@@ -236,9 +236,9 @@ async def inline_pagination_handler(update: Update, context: ContextTypes.DEFAUL
     page_items = results[start:end]
 
     header = (
-        f"📋 *Jami natija:* {total} ta\n"
-        f"🟢 *Faollar:* {active} ta ({pct}%)\n"
-        f"📄 *Sahifa:* {page}/{total_pages}\n\n"
+        f"📋 *Jami topilgan talabalar soni:* {total} ta\n"
+        f"🟢 *my.mehnat.uz da faol bo'lganlar soni:* {active} ta ({pct}%)\n"
+        f"📄 *Sahifalar:* {page}/{total_pages}\n\n"
     )
     new_text = header + format_results_block(page_items)
 
@@ -314,9 +314,9 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plt.savefig(file_name, bbox_inches="tight")
         plt.close()
         with open(file_name, "rb") as ph:
-            await context.bot.send_photo(chat_id=chat_id, photo=ph, caption="📊 W ustunidagi qiymatlar taqsimoti")
+            await context.bot.send_photo(chat_id=chat_id, photo=ph, caption="📊 Yo'nalishlar kesimi bo'yicha taqsimot grafigi")
     except Exception as e:
-        await context.bot.send_message(chat_id=chat_id, text=f"❌ Grafik yaratishda xatolik: {e}")
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ Grafik yaratishda xatolik bo'ldi xatolik kodi: {e}")
     finally:
         if os.path.exists(file_name):
             os.remove(file_name)
