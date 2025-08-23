@@ -257,7 +257,6 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import matplotlib.pyplot as plt
     import uuid, os
     from collections import Counter
-    from config import IDX_W
     from sheets import load_rows
     from utils import safe_cell
     from telegram import InputFile
