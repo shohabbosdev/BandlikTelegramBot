@@ -315,44 +315,45 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cmap = plt.cm.get_cmap("tab20", len(labels))
     colors = [cmap(i) for i in range(len(labels))]
 
-    # Rasm o'lchami: kenglik elementlar soniga qarab, maksimal 40
-    width = min(40, max(10, len(labels) * 0.5))
-    height = max(6, len(labels) * 0.15)  # Balandlikni ham moslashtirildi
+    # Rasm o'lchami: kenglik elementlar soniga qarab, katta qilish
+    width = max(16, min(50, len(labels) * 1.2))  # Har bir element uchun ko'proq joy
+    height = max(10, len(labels) * 0.2)  # Balandlikni ham oshirish
     
-    plt.figure(figsize=(width, height), dpi=100)  # DPI ni kamaytirish tezlik uchun
-    bars = plt.bar(range(len(labels)), data, color=colors, edgecolor='black', linewidth=0.5)
-
-    # X o'qi - matn uzunligiga qarab rotation burchakni sozlash
-    max_label_length = max(len(label) for label in labels) if labels else 0
-    rotation_angle = 45 if max_label_length > 8 else 0
+    plt.figure(figsize=(width, height), dpi=150)  # Yuqori sifat uchun DPI oshirish
     
-    plt.xticks(range(len(labels)), labels, rotation=rotation_angle, 
-               ha="right" if rotation_angle > 0 else "center", fontsize=10)
-    plt.ylabel("Soni", fontsize=12, fontweight='bold')
-    plt.title("📊 Yo'nalishlar bo'yicha taqsimot grafigi", fontsize=14, fontweight='bold', pad=20)
-    plt.grid(axis="y", linestyle="--", alpha=0.6, color='gray')
+    # Horizontal bar chart (yotiq grafik) - uzun matnlar uchun yaxshiroq
+    bars = plt.barh(range(len(labels)), data, color=colors, edgecolor='black', linewidth=0.5)
 
-    # Y o'qini butun sonlarga sozlash
+    # Y o'qi - matnlarni to'liq ko'rsatish uchun
+    plt.yticks(range(len(labels)), labels, fontsize=11)
+    
+    # Y o'qidagi matnlarni chap tomonga tekislash
+    plt.gca().tick_params(axis='y', which='major', pad=10)
+    plt.xlabel("Soni", fontsize=12, fontweight='bold')
+    plt.title("📊 Yo'nalishlar bo'yicha taqsimot grafigi", fontsize=16, fontweight='bold', pad=30)
+    plt.grid(axis="x", linestyle="--", alpha=0.6, color='gray')
+
+    # X o'qini butun sonlarga sozlash
     if max(data) < 20:
-        plt.yticks(range(0, max(data) + 2))
+        plt.xticks(range(0, max(data) + 2))
 
-    # Bar ustidagi qiymatlar
+    # Bar o'ngidagi qiymatlar (horizontal uchun)
     for i, (bar, val) in enumerate(zip(bars, data)):
-        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(data) * 0.01,
-                 str(val), ha="center", va="bottom", fontsize=9, fontweight="bold")
+        plt.text(bar.get_width() + max(data) * 0.01, bar.get_y() + bar.get_height()/2,
+                 str(val), ha="left", va="center", fontsize=10, fontweight="bold")
 
-    # Legend faqat ko'p element bo'lganda
-    if len(labels) <= 15:
+    # Legend o'ng tomonda
+    if len(labels) <= 20:
         plt.legend(bars, labels, title="Yo'nalishlar", bbox_to_anchor=(1.05, 1), 
-                   loc="upper left", fontsize=9, title_fontsize=10)
+                   loc="upper left", fontsize=9, title_fontsize=11)
 
     # Fayl nomi va saqlash
     file_name = f"/tmp/grafik_{uuid.uuid4().hex}.png"
     try:
         plt.tight_layout()
-        plt.subplots_adjust(right=0.85 if len(labels) <= 15 else 0.95)  # Legend uchun joy
+        plt.subplots_adjust(left=0.4, right=0.75 if len(labels) <= 20 else 0.95)  # Matnlar uchun ko'proq joy
         plt.savefig(file_name, bbox_inches="tight", facecolor='white', 
-                    edgecolor='none', format='png', optimize=True)
+                    edgecolor='none', format='png', optimize=True, dpi=150)
         plt.close()
         
         with open(file_name, "rb") as ph:
@@ -372,4 +373,3 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(file_name)
         # Asl shrift sozlamalarini qaytarish
         plt.rcParams['font.family'] = orig_font
-
