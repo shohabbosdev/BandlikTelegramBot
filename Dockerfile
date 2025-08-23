@@ -11,9 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Loyihani konteynerga nusxalash
 COPY . .
 
-# Google credentials faylini konteynerga nusxalash
-COPY path/to/credentials.json /etc/secrets/GOOGLE_APPLICATION_CREDENTIALS
-
-
 # Telegram botni ishga tushirish
 CMD ["python", "main.py"]
