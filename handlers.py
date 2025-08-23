@@ -277,36 +277,74 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     labels = [str(t[0]) for t in counts]
     data = [t[1] for t in counts]
 
-    # Shrift sozlash - bir nechta variantni sinab ko'rish
+    # Asl shrift sozlamalarini saqlash
     orig_font = mpl.rcParams["font.family"].copy()
-    font_candidates = [
-        'Times New Roman', 
-        'DejaVu Serif', 
-        'Liberation Serif',
-        'Times',
-        'serif',
-        'DejaVu Sans',
-        'Liberation Sans',
-        'Arial',
-        'sans-serif'
-    ]
     
-    font_set = False
-    for font in font_candidates:
-        try:
-            plt.rcParams['font.family'] = font
-            # Shriftni test qilish
-            fig_test = plt.figure()
-            plt.text(0.5, 0.5, 'Test', fontfamily=font)
-            plt.close(fig_test)
-            font_set = True
-            break
-        except Exception:
-            continue
+    # GITHUB'DAN CUSTOM SHRIFTNI YUKLASH
+    custom_font_name = None
+    font_temp_path = None
     
-    if not font_set:
-        # Agar hech qanday shrift ishlamasa, default qoldirish
-        plt.rcParams['font.family'] = 'sans-serif'
+    # GitHub raw URL
+    font_url = "https://raw.githubusercontent.com/shohabbosdev/BandlikTelegramBot/main/timesnewromanps_italicmt.ttf"
+    
+    try:
+        import requests
+        font_temp_path = f"/tmp/times_font_{uuid.uuid4().hex}.ttf"
+        
+        # Shriftni yuklash
+        response = requests.get(font_url, timeout=15)
+        response.raise_for_status()
+        
+        # Temporary faylga saqlash
+        with open(font_temp_path, 'wb') as f:
+            f.write(response.content)
+        
+        # Matplotlib'ga shriftni qo'shish
+        import matplotlib.font_manager as fm
+        fm.fontManager.addfont(font_temp_path)
+        prop = fm.FontProperties(fname=font_temp_path)
+        custom_font_name = prop.get_name()
+        
+        print(f"GitHub'dan shrift yuklandi: {custom_font_name}")
+        
+    except Exception as e:
+        print(f"GitHub shrift yuklanmadi: {e}")
+        if font_temp_path and os.path.exists(font_temp_path):
+            os.remove(font_temp_path)
+            font_temp_path = None
+
+    # Shrift sozlash
+    if custom_font_name:
+        plt.rcParams['font.family'] = custom_font_name
+    else:
+        # Fallback shriftlar
+        font_candidates = [
+            'Times New Roman', 
+            'DejaVu Serif', 
+            'Liberation Serif',
+            'Times',
+            'serif',
+            'DejaVu Sans',
+            'Liberation Sans',
+            'Arial',
+            'sans-serif'
+        ]
+        
+        font_set = False
+        for font in font_candidates:
+            try:
+                plt.rcParams['font.family'] = font
+                # Shriftni test qilish
+                fig_test = plt.figure()
+                plt.text(0.5, 0.5, 'Test', fontfamily=font)
+                plt.close(fig_test)
+                font_set = True
+                break
+            except Exception:
+                continue
+        
+        if not font_set:
+            plt.rcParams['font.family'] = 'sans-serif'
 
     # UTF-8 belgilarni qo'llab-quvvatlash uchun
     plt.rcParams['axes.unicode_minus'] = False
@@ -353,7 +391,7 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plt.tight_layout()
         plt.subplots_adjust(left=0.4, right=0.75 if len(labels) <= 20 else 0.95)  # Matnlar uchun ko'proq joy
         plt.savefig(file_name, bbox_inches="tight", facecolor='white', 
-                    edgecolor='none', format='png', optimize=True, dpi=150)
+                    edgecolor='none', format='png', dpi=150)
         plt.close()
         
         with open(file_name, "rb") as ph:
@@ -371,5 +409,8 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Tozalash
         if os.path.exists(file_name):
             os.remove(file_name)
+        # Temporary shrift faylini tozalash
+        if font_temp_path and os.path.exists(font_temp_path):
+            os.remove(font_temp_path)
         # Asl shrift sozlamalarini qaytarish
         plt.rcParams['font.family'] = orig_font
