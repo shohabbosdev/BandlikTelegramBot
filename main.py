@@ -3,67 +3,59 @@ import logging
 import asyncio
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# 🔹 Log sozlamalari
+# Logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-# 🔹 Bot token
+# Bot token
 TOKEN = os.getenv("BOT_TOKEN")
 
-# 🔹 Flask ilovasi
+# Flask app
 app = Flask(__name__)
 
-# 🔹 PTB Application
+# Telegram Application
 application = Application.builder().token(TOKEN).build()
 
+# Handlers
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Salom! Bot ishga tushdi ✅")
 
-# 🔹 /start komandasi
-async def start(update: Update, context):
-    await update.message.reply_text("Assalomu alaykum! Bot ishlayapti ✅")
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(update.message.text)
 
-
-# 🔹 Oddiy matn javobi
-async def echo(update: Update, context):
-    await update.message.reply_text(f"Siz yozdingiz: {update.message.text}")
-
-
-# 🔹 Handlerlar
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
 
-# 🔹 Webhook yo‘li
-WEBHOOK_PATH = "/webhook"
-
-
-@app.route(WEBHOOK_PATH, methods=["POST"])
+# 🔹 Webhook route
+@app.route("/webhook", methods=["POST"])
 def webhook():
     try:
         data = request.get_json(force=True)
         update = Update.de_json(data, application.bot)
-
-        # Har bir POST uchun alohida event loop yaratamiz
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(application.process_update(update))
-        loop.close()
-
+        asyncio.run(application.process_update(update))  # ✅ event loop to‘g‘ri ishlaydi
     except Exception as e:
-        log.exception("Webhook error: %s", e)
+        logger.error(f"Webhook error: {e}", exc_info=True)
+    return "ok", 200
 
-    return "OK"
 
-
-@app.route("/", methods=["GET"])
-def home():
-    return "Bot ishlayapti ✅"
+# 🔹 Root route
+@app.route("/")
+def index():
+    return "Bot ishlayapti ✅", 200
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    # Botni ishga tushirish
+    async def run():
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()  # polling emas, lekin update queue ishlashi uchun
+        logger.info("Bot ishga tushdi...")
+
+    asyncio.run(run())
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
