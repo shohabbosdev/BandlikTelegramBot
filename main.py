@@ -1,7 +1,6 @@
 import os
 import logging
 import asyncio
-import threading
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
@@ -24,9 +23,8 @@ if not TOKEN:
 # Flask app
 app = Flask(__name__)
 
-# Global variables
+# Global application
 application = None
-event_loop = None
 
 def setup_application():
     """Application yaratish va handlerlar qo'shish"""
@@ -41,42 +39,6 @@ def setup_application():
     
     return app
 
-async def init_bot():
-    """Bot initialization"""
-    global application
-    application = setup_application()
-    await application.initialize()
-    await application.start()
-    logger.info("Bot ishga tushdi...")
-
-def run_async_in_thread(coro):
-    """Alohida thread ichida async kodni ishga tushirish"""
-    global event_loop
-    
-    def run_in_thread():
-        global event_loop
-        event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(event_loop)
-        event_loop.run_until_complete(coro)
-    
-    thread = threading.Thread(target=run_in_thread)
-    thread.daemon = True
-    thread.start()
-    thread.join()
-
-def schedule_coroutine(coro):
-    """Coroutine ni mavjud event loop ga qo'shish"""
-    global event_loop
-    if event_loop and event_loop.is_running():
-        # Thread-safe ravishda task qo'shish
-        future = asyncio.run_coroutine_threadsafe(coro, event_loop)
-        try:
-            future.result(timeout=30)  # 30 sekund timeout
-        except Exception as e:
-            logger.error(f"Coroutine execution error: {e}")
-    else:
-        logger.error("Event loop is not running!")
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     """Webhook handler"""
@@ -89,8 +51,24 @@ def webhook():
         if not update:
             return "Invalid update", 400
         
-        # Update ni async ravishda qayta ishlash
-        schedule_coroutine(application.process_update(update))
+        # Yangi event loop yaratish va update ni qayta ishlash
+        try:
+            # Yangi event loop yaratish
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Update ni qayta ishlash
+            loop.run_until_complete(application.process_update(update))
+            
+        except Exception as e:
+            logger.error(f"Update processing error: {e}", exc_info=True)
+        finally:
+            # Loop ni yopish
+            try:
+                if loop and not loop.is_closed():
+                    loop.close()
+            except:
+                pass
         
         return "OK", 200
         
@@ -109,17 +87,25 @@ def health():
     try:
         status = {
             "bot": "running" if application else "not initialized",
-            "loop": "running" if event_loop and event_loop.is_running() else "stopped"
+            "status": "healthy"
         }
         return status, 200
     except Exception as e:
         return {"error": str(e)}, 500
 
+async def init_bot():
+    """Bot initialization"""
+    global application
+    application = setup_application()
+    await application.initialize()
+    await application.start()
+    logger.info("Bot ishga tushdi...")
+
 if __name__ == "__main__":
     try:
         # Bot initialization
         logger.info("Initializing bot...")
-        run_async_in_thread(init_bot())
+        asyncio.run(init_bot())
         logger.info("Bot initialized successfully!")
         
         # Flask server
