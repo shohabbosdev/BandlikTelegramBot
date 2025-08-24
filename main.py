@@ -4,7 +4,6 @@ import asyncio
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
-import threading
 
 # Import handlers
 from handlers import start, search, stat, grafik, inline_pagination_handler
@@ -15,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 # Bot token
 TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # https://bandliktelegrambot.onrender.com
+
 if not TOKEN:
     raise ValueError("BOT_TOKEN not found!")
 
-# Flask app for health check only
+# Flask app
 app = Flask(__name__)
 
 # Bot application
@@ -31,56 +32,69 @@ application.add_handler(CommandHandler("grafik", grafik))
 application.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
-async def run_bot():
-    """Bot polling rejimida ishga tushirish"""
+async def setup_webhook():
+    """Webhook sozlash"""
     try:
-        # Bot ni ishga tushirish
-        logger.info("Bot polling rejimida ishga tushdi!")
-        
-        # run_polling avtomatik ravishda initialize, start va polling ni boshqaradi
-        await application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
-        )
-        
+        await application.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
+        logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}/webhook")
     except Exception as e:
-        logger.error(f"Bot error: {e}")
-
-def start_bot_thread():
-    """Bot ni alohida thread da ishga tushirish"""
-    try:
-        # Yangi event loop yaratish
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Bot ni ishga tushirish
-        loop.run_until_complete(run_bot())
-        
-    except Exception as e:
-        logger.error(f"Bot thread error: {e}")
+        logger.error(f"Webhook sozlashda xato: {e}")
 
 @app.route('/')
 def health_check():
     """Health check endpoint"""
-    return "Bot is running in polling mode!", 200
+    return "Bot is running in webhook mode!", 200
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Telegram webhook endpoint"""
+    try:
+        # Ma'lumotlarni olish
+        update_data = request.get_json()
+        
+        if update_data:
+            # Update obyektini yaratish
+            update = Update.de_json(update_data, application.bot)
+            
+            # Async update ni qayta ishlash
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(application.process_update(update))
+            loop.close()
+        
+        return "OK", 200
+        
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return "Error", 500
 
 @app.route('/health')
 def detailed_health():
     """Detailed health check"""
     return {
         "status": "running",
-        "mode": "polling",
-        "bot": "active"
+        "mode": "webhook",
+        "bot": "active",
+        "webhook_url": f"{WEBHOOK_URL}/webhook" if WEBHOOK_URL else None
     }, 200
 
 if __name__ == "__main__":
-    # Bot ni alohida thread da ishga tushirish
-    bot_thread = threading.Thread(target=start_bot_thread, daemon=True)
-    bot_thread.start()
-    
-    # Flask health check server
     port = int(os.environ.get("PORT", 10000))
-    logger.info(f"Starting health check server on port {port}")
     
-    # Flask ni oddiy rejimda ishga tushirish
-    app.run(host="0.0.0.0", port=port, debug=False)
+    # Application ni initialize qilish
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(application.initialize())
+    
+    # Webhook rejimi
+    if WEBHOOK_URL:
+        logger.info("Webhook rejimida ishga tushmoqda...")
+        loop.run_until_complete(setup_webhook())
+        logger.info(f"Flask server {port} portda ishga tushmoqda...")
+        app.run(host="0.0.0.0", port=port, debug=False)
+    else:
+        # Polling rejimi
+        logger.info("WEBHOOK_URL topilmadi, polling rejimida ishga tushmoqda...")
+        loop.run_until_complete(application.run_polling())
+    
+    loop.close()
