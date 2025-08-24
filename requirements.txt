@@ -4,3 +4,4 @@ google-auth
 matplotlib
 environs
 python-dotenv
+flask
