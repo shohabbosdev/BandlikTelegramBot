@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from handlers import start, stat, search, grafik, inline_pagination_handler
 from config import TOKEN
+import asyncio
 
 # Flask ilovasi
 app = Flask(__name__)
@@ -20,12 +21,11 @@ telegram_app.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern
 
 # Flask route (Telegram webhook dan keladigan so‘rovlar)
 @app.post("/webhook")
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.process_update(update)
+    asyncio.run(telegram_app.process_update(update))
     return "OK", 200
-
 
 # Oddiy test route
 @app.get("/")
