@@ -34,20 +34,17 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 async def run_bot():
     """Bot polling rejimida ishga tushirish"""
     try:
-        await application.initialize()
-        await application.start()
+        # Bot ni ishga tushirish
         logger.info("Bot polling rejimida ishga tushdi!")
         
-        # Polling start
-        await application.updater.start_polling()
-        
-        # Keep running
-        await application.updater.idle()
+        # run_polling avtomatik ravishda initialize, start va polling ni boshqaradi
+        await application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True
+        )
         
     except Exception as e:
         logger.error(f"Bot error: {e}")
-    finally:
-        await application.stop()
 
 def start_bot_thread():
     """Bot ni alohida thread da ishga tushirish"""
