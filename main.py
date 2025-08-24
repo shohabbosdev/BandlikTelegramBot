@@ -1,86 +1,89 @@
-# main.py
 import os
 import logging
 import asyncio
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+import threading
 
 # Import handlers
 from handlers import start, search, stat, grafik, inline_pagination_handler
 
 # Logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Bot token
 TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("BOT_TOKEN not found!")
 
-# Flask app
+# Flask app for health check only
 app = Flask(__name__)
 
-# Global application variable
-application = None
+# Bot application
+application = Application.builder().token(TOKEN).build()
 
-async def create_application():
-    """Create and initialize telegram application"""
-    app = Application.builder().token(TOKEN).build()
-    
-    # Add handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stat", stat))
-    app.add_handler(CommandHandler("grafik", grafik))
-    app.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
-    
-    await app.initialize()
-    await app.start()
-    
-    return app
+# Add handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("stat", stat))
+application.add_handler(CommandHandler("grafik", grafik))
+application.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
-# Initialize application on module load
-try:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    application = loop.run_until_complete(create_application())
-    logger.info("Bot initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize bot: {e}")
-    raise
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
+async def run_bot():
+    """Bot polling rejimida ishga tushirish"""
     try:
-        data = request.get_json()
-        update = Update.de_json(data, application.bot)
+        await application.initialize()
+        await application.start()
+        logger.info("Bot polling rejimida ishga tushdi!")
         
-        # Create isolated event loop for this request
-        def process_update_sync():
-            local_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(local_loop)
-            try:
-                local_loop.run_until_complete(application.process_update(update))
-            finally:
-                local_loop.close()
+        # Polling start
+        await application.updater.start_polling()
         
-        # Run in separate thread to avoid loop conflicts
-        import threading
-        thread = threading.Thread(target=process_update_sync)
-        thread.start()
-        thread.join(timeout=30)  # 30 second timeout
+        # Keep running
+        await application.updater.idle()
         
-        return jsonify({"status": "ok"})
-    
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Bot error: {e}")
+    finally:
+        await application.stop()
+
+def start_bot_thread():
+    """Bot ni alohida thread da ishga tushirish"""
+    try:
+        # Yangi event loop yaratish
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Bot ni ishga tushirish
+        loop.run_until_complete(run_bot())
+        
+    except Exception as e:
+        logger.error(f"Bot thread error: {e}")
 
 @app.route('/')
-def home():
-    return "Bot is running!"
+def health_check():
+    """Health check endpoint"""
+    return "Bot is running in polling mode!", 200
+
+@app.route('/health')
+def detailed_health():
+    """Detailed health check"""
+    return {
+        "status": "running",
+        "mode": "polling",
+        "bot": "active"
+    }, 200
 
 if __name__ == "__main__":
-    from waitress import serve
+    # Bot ni alohida thread da ishga tushirish
+    bot_thread = threading.Thread(target=start_bot_thread, daemon=True)
+    bot_thread.start()
+    
+    # Flask health check server
     port = int(os.environ.get("PORT", 10000))
-    logger.info(f"Starting server on port {port}")
-    serve(app, host="0.0.0.0", port=port)
+    logger.info(f"Starting health check server on port {port}")
+    
+    # Flask ni oddiy rejimda ishga tushirish
+    app.run(host="0.0.0.0", port=port, debug=False)
