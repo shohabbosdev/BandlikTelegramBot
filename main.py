@@ -19,12 +19,13 @@ telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search)
 telegram_app.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
 
 # Flask route (Telegram webhook dan keladigan so‘rovlar)
-@app.post(f"/{TOKEN}")
-async def webhook(request):
+@app.post("/webhook")
+async def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
     await telegram_app.process_update(update)
-    return "ok", 200
+    return "OK", 200
+
 
 # Oddiy test route
 @app.get("/")
