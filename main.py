@@ -1,8 +1,13 @@
 import os
+import logging
 import asyncio
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+
+# Logging setup BIRINCHI
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Import handlers
 try:
@@ -11,10 +16,6 @@ try:
 except Exception as e:
     logger.error(f"Handler import error: {e}")
     raise
-
-# Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 # Bot token
 TOKEN = os.getenv("BOT_TOKEN")
