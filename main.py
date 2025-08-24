@@ -1,23 +1,36 @@
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
-from config import TOKEN
+import os
+from flask import Flask, request
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from handlers import start, stat, search, grafik, inline_pagination_handler
+from config import TOKEN
 
+# Flask ilovasi
+app = Flask(__name__)
 
-def main():
-    app = Application.builder().token(TOKEN).build()
+# PTB Application (async)
+telegram_app = Application.builder().token(TOKEN).build()
 
-    # komandalar
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stat", stat))
-    app.add_handler(CommandHandler("grafik", grafik))
+# Handlers qo‘shamiz
+telegram_app.add_handler(CommandHandler("start", start))
+telegram_app.add_handler(CommandHandler("stat", stat))
+telegram_app.add_handler(CommandHandler("grafik", grafik))
+telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
+telegram_app.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
 
-    # matnli qidiruv (shu handler ichida tugma matnlarini filtrlab olamiz)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
+# Flask route (Telegram webhook dan keladigan so‘rovlar)
+@app.post(f"/{TOKEN}")
+async def webhook(request):
+    data = request.get_json(force=True)
+    update = Update.de_json(data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return "ok", 200
 
-    # inline pagination uchun
-    app.add_handler(CallbackQueryHandler(inline_pagination_handler, pattern=r"^pg\|"))
-
-    app.run_polling()
+# Oddiy test route
+@app.get("/")
+def home():
+    return "Bot is running!", 200
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
