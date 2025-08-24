@@ -253,164 +253,81 @@ async def inline_pagination_handler(update: Update, context: ContextTypes.DEFAUL
 
 # ---------------- Grafik (Grafik tugmasi yoki /grafik) ----------------
 async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    import matplotlib as mpl
+    import matplotlib
+    matplotlib.use('Agg')  # Headless mode
     import matplotlib.pyplot as plt
     import uuid, os
     from collections import Counter
     from sheets import load_rows
     from utils import safe_cell
-    from telegram import InputFile
     from telegram.constants import ChatAction
 
-    mpl.use("Agg")  # Headless mode, server uchun
-
     chat_id = update.effective_chat.id
-    await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
-
-    rows = load_rows()
-    vals = [safe_cell(r, IDX_W) for r in rows[1:] if safe_cell(r, IDX_W)]
-    if not vals:
-        await context.bot.send_message(chat_id=chat_id, text="❌ Grafik uchun ma'lumot topilmadi.")
-        return
-
-    counts = Counter(vals).most_common()
-    labels = [str(t[0]) for t in counts]
-    data = [t[1] for t in counts]
-
-    # Asl shrift sozlamalarini saqlash
-    orig_font = mpl.rcParams["font.family"].copy()
-    
-    # GITHUB'DAN CUSTOM SHRIFTNI YUKLASH
-    custom_font_name = None
-    font_temp_path = None
-    
-    # GitHub raw URL
-    font_url = "https://raw.githubusercontent.com/shohabbosdev/BandlikTelegramBot/main/timesnewromanps_italicmt.ttf"
     
     try:
-        import requests
-        font_temp_path = f"/tmp/times_font_{uuid.uuid4().hex}.ttf"
+        await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
+
+        rows = load_rows()
+        vals = [safe_cell(r, IDX_W) for r in rows[1:] if safe_cell(r, IDX_W)]
         
-        # Shriftni yuklash
-        response = requests.get(font_url, timeout=15)
-        response.raise_for_status()
+        if not vals:
+            await context.bot.send_message(chat_id=chat_id, text="❌ Grafik uchun ma'lumot topilmadi.")
+            return
+
+        counts = Counter(vals).most_common()
+        labels = [str(t[0]) for t in counts]
+        data = [t[1] for t in counts]
+
+        # Oddiy font sozlamalari
+        plt.rcParams['font.family'] = 'DejaVu Sans'
+        plt.rcParams['axes.unicode_minus'] = False
         
-        # Temporary faylga saqlash
-        with open(font_temp_path, 'wb') as f:
-            f.write(response.content)
+        # Grafik o'lchamlari
+        fig_width = max(10, min(16, len(labels) * 0.8))
+        fig_height = max(6, len(labels) * 0.4)
         
-        # Matplotlib'ga shriftni qo'shish
-        import matplotlib.font_manager as fm
-        fm.fontManager.addfont(font_temp_path)
-        prop = fm.FontProperties(fname=font_temp_path)
-        custom_font_name = prop.get_name()
+        plt.figure(figsize=(fig_width, fig_height), dpi=100)
         
-        print(f"GitHub'dan shrift yuklandi: {custom_font_name}")
-        
-    except Exception as e:
-        print(f"GitHub shrift yuklanmadi: {e}")
-        if font_temp_path and os.path.exists(font_temp_path):
-            os.remove(font_temp_path)
-            font_temp_path = None
+        # Horizontal bar chart
+        colors = plt.cm.Set3(range(len(labels)))
+        bars = plt.barh(range(len(labels)), data, color=colors, alpha=0.8, edgecolor='black', linewidth=0.5)
 
-    # Shrift sozlash
-    if custom_font_name:
-        plt.rcParams['font.family'] = custom_font_name
-    else:
-        # Fallback shriftlar
-        font_candidates = [
-            'Times New Roman', 
-            'DejaVu Serif', 
-            'Liberation Serif',
-            'Times',
-            'serif',
-            'DejaVu Sans',
-            'Liberation Sans',
-            'Arial',
-            'sans-serif'
-        ]
-        
-        font_set = False
-        for font in font_candidates:
-            try:
-                plt.rcParams['font.family'] = font
-                # Shriftni test qilish
-                fig_test = plt.figure()
-                plt.text(0.5, 0.5, 'Test', fontfamily=font)
-                plt.close(fig_test)
-                font_set = True
-                break
-            except Exception:
-                continue
-        
-        if not font_set:
-            plt.rcParams['font.family'] = 'sans-serif'
+        # Labels va formatting
+        plt.yticks(range(len(labels)), labels, fontsize=10)
+        plt.xlabel("Talabalar soni", fontsize=11, fontweight='bold')
+        plt.title("📊 Yo'nalishlar bo'yicha taqsimot", fontsize=13, fontweight='bold', pad=15)
+        plt.grid(axis="x", linestyle="--", alpha=0.5)
 
-    # UTF-8 belgilarni qo'llab-quvvatlash uchun
-    plt.rcParams['axes.unicode_minus'] = False
+        # Values on bars
+        max_val = max(data) if data else 1
+        for bar, val in zip(bars, data):
+            plt.text(bar.get_width() + max_val * 0.01, 
+                    bar.get_y() + bar.get_height()/2,
+                    str(val), ha="left", va="center", fontsize=9, fontweight="bold")
 
-    # Ranglar
-    cmap = plt.cm.get_cmap("tab20", len(labels))
-    colors = [cmap(i) for i in range(len(labels))]
-
-    # Rasm o'lchami: kenglik elementlar soniga qarab, katta qilish
-    width = max(16, min(50, len(labels) * 1.2))  # Har bir element uchun ko'proq joy
-    height = max(10, len(labels) * 0.2)  # Balandlikni ham oshirish
-    
-    plt.figure(figsize=(width, height), dpi=150)  # Yuqori sifat uchun DPI oshirish
-    
-    # Horizontal bar chart (yotiq grafik) - uzun matnlar uchun yaxshiroq
-    bars = plt.barh(range(len(labels)), data, color=colors, edgecolor='black', linewidth=0.5)
-
-    # Y o'qi - matnlarni to'liq ko'rsatish uchun
-    plt.yticks(range(len(labels)), labels, fontsize=11)
-    
-    # Y o'qidagi matnlarni chap tomonga tekislash
-    plt.gca().tick_params(axis='y', which='major', pad=10)
-    plt.xlabel("Soni", fontsize=12, fontweight='bold')
-    plt.title("📊 Yo'nalishlar bo'yicha taqsimot grafigi", fontsize=16, fontweight='bold', pad=30)
-    plt.grid(axis="x", linestyle="--", alpha=0.6, color='gray')
-
-    # X o'qini butun sonlarga sozlash
-    if max(data) < 20:
-        plt.xticks(range(0, max(data) + 2))
-
-    # Bar o'ngidagi qiymatlar (horizontal uchun)
-    for i, (bar, val) in enumerate(zip(bars, data)):
-        plt.text(bar.get_width() + max(data) * 0.01, bar.get_y() + bar.get_height()/2,
-                 str(val), ha="left", va="center", fontsize=10, fontweight="bold")
-
-    # Legend o'ng tomonda
-    if len(labels) <= 20:
-        plt.legend(bars, labels, title="Yo'nalishlar", bbox_to_anchor=(1.05, 1), 
-                   loc="upper left", fontsize=9, title_fontsize=11)
-
-    # Fayl nomi va saqlash
-    file_name = f"/tmp/grafik_{uuid.uuid4().hex}.png"
-    try:
         plt.tight_layout()
-        plt.subplots_adjust(left=0.4, right=0.75 if len(labels) <= 20 else 0.95)  # Matnlar uchun ko'proq joy
-        plt.savefig(file_name, bbox_inches="tight", facecolor='white', 
-                    edgecolor='none', format='png', dpi=150)
+        
+        # Save and send
+        file_name = f"/tmp/grafik_{uuid.uuid4().hex}.png"
+        plt.savefig(file_name, bbox_inches="tight", facecolor='white', dpi=100)
         plt.close()
         
-        with open(file_name, "rb") as ph:
+        with open(file_name, "rb") as photo:
             await context.bot.send_photo(
                 chat_id=chat_id, 
-                photo=ph, 
+                photo=photo, 
                 caption="📊 Yo'nalishlar kesimi bo'yicha taqsimot grafigi"
             )
+        
+        # Cleanup
+        os.remove(file_name)
+        
     except Exception as e:
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text=f"❌ Grafik yaratishda xatolik: {str(e)}"
-        )
-    finally:
-        # Tozalash
-        if os.path.exists(file_name):
-            os.remove(file_name)
-        # Temporary shrift faylini tozalash
-        if font_temp_path and os.path.exists(font_temp_path):
-            os.remove(font_temp_path)
-        # Asl shrift sozlamalarini qaytarish
-        plt.rcParams['font.family'] = orig_font
+        logger.error(f"Grafik error: {e}", exc_info=True)
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text="❌ Grafik yaratishda xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring."
+            )
+        except:
+            pass  # Agar bu ham ishlamasa, ignore qilamiz
